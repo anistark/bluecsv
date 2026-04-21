@@ -50,10 +50,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
       - name: Read tag annotation
         id: tag
         run: |
-          subject=$(git tag -l --format='%(contents:subject)' "${GITHUB_REF_NAME}")
+          subject=$(git for-each-ref --format='%(contents:subject)' "refs/tags/${GITHUB_REF_NAME}")
+          echo "tag ${GITHUB_REF_NAME} subject: [${subject}]"
           echo "subject=${subject:-${GITHUB_REF_NAME}}" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
