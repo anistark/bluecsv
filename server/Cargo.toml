@@ -6,7 +6,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.6.2"
+version = "0.6.3"
 edition = "2021"
 license = "MIT"
 authors = ["Kumar Anirudha"]
@@ -14,4 +14,4 @@ repository = "https://github.com/anistark/bluecsv"
 
 [workspace.dependencies.bluecsv]
 path = "bluecsv"
-version = "0.6.2"
+version = "0.6.3"
