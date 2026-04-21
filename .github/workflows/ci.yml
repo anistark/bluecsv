@@ -29,4 +29,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-wasip1
+          components: clippy, rustfmt
+      - run: cargo fmt --check
+      - run: cargo clippy --target wasm32-wasip1 --release -- -D warnings
       - run: cargo build --target wasm32-wasip1 --release

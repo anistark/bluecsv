@@ -88,6 +88,48 @@ Re-run **zed: install dev extension** after any change to `extension.toml`, the 
 - No commentary on *what* the code does; comments only for non-obvious *why*.
 - Prefer small, composable functions over clever ones.
 
+## Releasing (maintainers)
+
+The repo ships a [`justfile`](./justfile) that drives the release flow. Run `just --list` to see all recipes.
+
+### Cut a release
+
+```sh
+just check                                        # local pre-flight, mirrors CI
+just publish 0.6.3                                # default title "bluecsv v0.6.3"
+just publish 0.6.3 "Auto-download LSP binaries"   # custom title
+```
+
+`just publish`:
+
+1. Refuses if the working tree is dirty.
+2. Syncs `X.Y.Z` across `Cargo.toml`, `extension.toml`, and `server/Cargo.toml` (both `workspace.package.version` and the `workspace.dependencies.bluecsv.version`), then refreshes both `Cargo.lock`s.
+3. Re-runs `just check` on the bumped state.
+4. Commits `"Bump to vX.Y.Z"`, creates the annotated tag, pushes `main` + tag.
+
+The optional `TITLE` argument becomes the tag annotation and — via [`release.yml`](./.github/workflows/release.yml) — the GitHub Release name. Omit it to use the default `"bluecsv vX.Y.Z"`. Avoid single quotes inside the title (shell quoting); double quotes are fine.
+
+### What happens after the tag push
+
+`release.yml` triggers on `v*.*.*` tags and:
+
+1. Builds `bluecsv-ls` for `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`.
+2. Tarballs each as `bluecsv-ls-<target>.tar.gz` and creates a GitHub Release, using the tag annotation as the Release name and auto-generated notes for the body.
+
+The extension's WASM code fetches these tarballs on first use (pinned to the tag matching the extension version), so binary availability on the Releases page is load-bearing — verify the Release looks right before moving on.
+
+### crates.io (optional, manual)
+
+```sh
+just publish-crates
+```
+
+Publishes `bluecsv` then `bluecsv-ls`. Requires `cargo login` with a crates.io token. Run only after the GitHub Release above is confirmed good — crates.io publishes are irreversible.
+
+### Grammar releases
+
+The grammar lives in [anistark/tree-sitter-csv](https://github.com/anistark/tree-sitter-csv) and has its own release cycle. To consume a new grammar version, update the `rev` in `[grammars.csv]` in `extension.toml` and cut a new bluecsv release.
+
 ## Conduct
 
 Be kind. Disagree on the idea, not the person. Maintainers reserve the right to lock threads that stop being productive.

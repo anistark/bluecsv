@@ -47,6 +47,14 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Read tag annotation
+        id: tag
+        run: |
+          subject=$(git tag -l --format='%(contents:subject)' "${GITHUB_REF_NAME}")
+          echo "subject=${subject:-${GITHUB_REF_NAME}}" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -54,4 +62,5 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*.tar.gz
+          name: ${{ steps.tag.outputs.subject }}
           generate_release_notes: true
