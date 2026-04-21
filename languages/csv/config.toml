@@ -1,0 +1,10 @@
+name = "CSV"
+grammar = "csv"
+path_suffixes = ["csv"]
+line_comments = []
+autoclose_before = ""
+brackets = [
+  { start = "\"", end = "\"", close = true, newline = false },
+]
+tab_size = 1
+hard_tabs = false

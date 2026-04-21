@@ -1,0 +1,16 @@
+[package]
+name = "bluecsv"
+version = "0.6.1"
+edition = "2021"
+license = "MIT"
+authors = ["Kumar Anirudha"]
+repository = "https://github.com/anistark/bluecsv"
+description = "Zed extension for Blue CSV."
+publish = false
+
+[lib]
+path = "src/bluecsv.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+zed_extension_api = "0.7"

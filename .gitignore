@@ -1,0 +1,19 @@
+plan/
+
+target/
+node_modules/
+dist/
+build/
+
+# Compiled extension bundle produced by Zed's dev-install.
+extension.wasm
+
+# Zed materializes the grammar clone + compiled WASM here on dev-install.
+# Both are derived from the tree-sitter-csv repo pinned in extension.toml.
+grammars/csv/
+grammars/csv.wasm
+
+*.log
+.DS_Store
+.idea/
+.vscode/

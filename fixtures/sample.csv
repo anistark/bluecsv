@@ -1,0 +1,6 @@
+id,name,email,age,status,notes
+1,Alice,alice@example.com,30,active,
+2,Bob,bob@example.com,25,inactive,"pending review, flagged"
+3,Carol,carol@example.com,42,active,"quoted ""nickname"" inside"
+4,Dave,dave@example.com,,active,multi-line
+5,Eve,eve@example.com,28,active,

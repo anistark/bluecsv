@@ -1,0 +1,26 @@
+[package]
+name = "bluecsv-ls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Language server for the Blue CSV Zed extension."
+
+[[bin]]
+name = "bluecsv-ls"
+path = "src/main.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+bluecsv = { workspace = true }
+tower-lsp = "0.20"
+tokio = { version = "1", features = ["io-std", "macros", "rt-multi-thread", "sync"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dashmap = "6"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "sync"] }

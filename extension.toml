@@ -1,0 +1,15 @@
+id = "bluecsv"
+name = "Blue CSV"
+version = "0.6.1"
+schema_version = 1
+authors = ["Kumar Anirudha"]
+description = "Spreadsheet-like CSV editing in Zed."
+repository = "https://github.com/anistark/bluecsv"
+
+[grammars.csv]
+repository = "https://github.com/anistark/tree-sitter-csv"
+rev = "c95a8770091677ee97f68cef37b8ed0aa26692d3"
+
+[language_servers.bluecsv-ls]
+name = "Blue CSV Language Server"
+languages = ["CSV"]
