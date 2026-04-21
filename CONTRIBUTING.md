@@ -94,6 +94,8 @@ The repo ships a [`justfile`](./justfile) that drives the release flow. Run `jus
 
 ### Cut a release
 
+Before tagging, move entries from `[Unreleased]` in [CHANGELOG.md](./CHANGELOG.md) into a new dated version section, and add the compare-link footnote at the bottom. Contributors add to `[Unreleased]` as PRs land; the maintainer only finalizes the section at release time.
+
 ```sh
 just check                                        # local pre-flight, mirrors CI
 just publish 0.6.3                                # default title "bluecsv v0.6.3"
