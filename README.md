@@ -1,5 +1,11 @@
 # Blue CSV
 
+[![CI](https://github.com/anistark/bluecsv/actions/workflows/ci.yml/badge.svg)](https://github.com/anistark/bluecsv/actions/workflows/ci.yml)
+[![crates.io: bluecsv](https://img.shields.io/crates/v/bluecsv?label=bluecsv)](https://crates.io/crates/bluecsv)
+[![crates.io: bluecsv-ls](https://img.shields.io/crates/v/bluecsv-ls?label=bluecsv-ls)](https://crates.io/crates/bluecsv-ls)
+[![Zed Extension](https://img.shields.io/badge/Zed-extension-084ccf)](https://zed.dev/extensions?query=bluecsv)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](./LICENSE)
+
 A [Zed](https://zed.dev) editor extension that makes CSV files feel like a spreadsheet — without leaving the text buffer.
 
 > **Status:** pre-alpha. v0.6.0 adds markdown-table round-trip: `bluecsv.toMarkdownTable` renders the buffer as a GitHub-flavored pipe table, `bluecsv.fromMarkdownTable` parses one back. See [`plan/`](./plan/) for the design docs and [`plan/roadmap.md`](./plan/roadmap.md) for what's shipping when.
