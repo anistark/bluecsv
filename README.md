@@ -8,23 +8,31 @@
 
 A [Zed](https://zed.dev) editor extension that makes CSV files feel like a spreadsheet — without leaving the text buffer.
 
-> **Status:** pre-alpha. v0.6.0 adds markdown-table round-trip: `bluecsv.toMarkdownTable` renders the buffer as a GitHub-flavored pipe table, `bluecsv.fromMarkdownTable` parses one back. See [`plan/`](./plan/) for the design docs and [`plan/roadmap.md`](./plan/roadmap.md) for what's shipping when.
+> **Status:** pre-alpha. v0.6.0 adds markdown-table round-trip: `bluecsv.toMarkdownTable` renders the buffer as a GitHub-flavored pipe table, `bluecsv.fromMarkdownTable` parses one back. If a `plan/` directory is present in your checkout, it holds design docs and roadmap notes.
 
 ## What it does
 
 Zed's extension API doesn't currently support custom file-renderers, so Blue CSV works with the text buffer you already have and makes it behave more like a grid:
 
-- **Rainbow columns** — each column gets its own color, so rows and columns are scannable at a glance.
+- **Rainbow columns** — each column gets its own color, so rows and columns are scannable at a glance. Powered by [`tree-sitter-csv`](https://github.com/anistark/tree-sitter-csv).
 - **Column alignment** — pad fields so columns line up in a monospace view. Toggleable.
 - **Markdown-table round-trip** — convert `a,b,c` ↔ `| a | b | c |` and back.
 - **Cell navigation** — Tab / Shift-Tab hop between fields; commands for add-column, delete-column, duplicate-row, header-aware sort.
 - **Column-aware LSP** — diagnostics for row-width mismatches and unterminated quotes; completions drawn from values already seen in that column; hover shows `column name + row index`.
 
-Supports `.csv`, `.tsv`, and custom delimiters.
+Supports `.csv` and custom delimiters.
 
 ## Install
 
-Not yet published. Once the first release lands it will be installable from Zed's extensions registry.
+Not yet published to Zed's extensions registry. Until then, install it as a dev extension:
+
+```sh
+git clone https://github.com/anistark/bluecsv.git
+```
+
+In Zed, open the command palette and run **zed: install dev extension**, then point it at the cloned directory (the one containing `extension.toml`). The extension will auto-download a matching `bluecsv-ls` release on first use.
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full local-dev setup.
 
 ## LSP commands
 
@@ -64,7 +72,7 @@ Simple canonical CSV (no padding inside fields) round-trips exactly.
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md). Design discussions live in [`plan/`](./plan/) — read those first before proposing anything non-trivial.
+See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 

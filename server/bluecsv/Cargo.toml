@@ -8,7 +8,7 @@ repository.workspace = true
 description = "CSV transforms (align/unalign) for the Blue CSV Zed extension."
 readme = "README.md"
 documentation = "https://docs.rs/bluecsv"
-keywords = ["csv", "cli", "tsv", "zed"]
+keywords = ["csv", "cli", "zed"]
 categories = ["command-line-utilities", "parser-implementations", "text-processing"]
 
 [lib]

@@ -4,9 +4,8 @@ Thanks for your interest. Blue CSV is early — most of the value right now is i
 
 ## Before you open a PR
 
-1. Read [`plan/overview.md`](./plan/overview.md) and [`plan/architecture.md`](./plan/architecture.md).
-2. Check [`plan/roadmap.md`](./plan/roadmap.md) to see which version the work belongs to. PRs that jump ahead of the roadmap are likely to be deferred.
-3. For anything non-trivial, open an issue first and sketch the approach. Saves churn.
+1. If your checkout has a `plan/` directory, skim it for design docs and roadmap notes before proposing changes. PRs that jump ahead of the roadmap are likely to be deferred.
+2. For anything non-trivial, open an issue first and sketch the approach. Saves churn.
 
 ## Project layout
 

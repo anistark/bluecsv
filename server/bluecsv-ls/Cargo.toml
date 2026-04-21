@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Language server for the Blue CSV Zed extension."
 readme = "README.md"
 documentation = "https://docs.rs/bluecsv-ls"
-keywords = ["csv", "lsp", "language-server", "zed", "tsv"]
+keywords = ["csv", "lsp", "language-server", "zed"]
 categories = ["development-tools", "text-editors", "parser-implementations"]
 
 [[bin]]
