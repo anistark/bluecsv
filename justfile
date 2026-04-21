@@ -5,7 +5,7 @@ default:
 
 # Run local checks (mirrors what CI does). Run before tagging a release.
 check:
-    cargo fmt --check --manifest-path server/Cargo.toml
+    cargo fmt --check --all --manifest-path server/Cargo.toml
     cargo clippy --all-targets --manifest-path server/Cargo.toml -- -D warnings
     cargo test --manifest-path server/Cargo.toml
     cargo build --target wasm32-wasip1 --release

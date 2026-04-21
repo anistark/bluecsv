@@ -651,8 +651,12 @@ mod tests {
         let titles = action_titles(&actions);
         assert!(titles.iter().any(|t| t == "Delete “name”"));
         assert!(titles.iter().any(|t| t == "Duplicate row 2"));
-        assert!(titles.iter().any(|t| t == "Sort rows by “name” (ascending)"));
-        assert!(titles.iter().any(|t| t == "Sort rows by “name” (descending)"));
+        assert!(titles
+            .iter()
+            .any(|t| t == "Sort rows by “name” (ascending)"));
+        assert!(titles
+            .iter()
+            .any(|t| t == "Sort rows by “name” (descending)"));
     }
 
     #[test]
