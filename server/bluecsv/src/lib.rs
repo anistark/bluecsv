@@ -1,5 +1,12 @@
 //! CSV transforms used by the Blue CSV Zed extension.
 
+pub mod stats;
+pub mod stream;
+pub mod types;
+
+pub use stats::{summarize, ColumnStats};
+pub use types::{classify_cell, infer_column, infer_table, CellType, ColumnType};
+
 enum State {
     FieldStart,
     Unquoted,

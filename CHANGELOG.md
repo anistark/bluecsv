@@ -6,6 +6,23 @@ Blue CSV releases three artifacts from a single version bump: the Zed extension 
 
 ## [Unreleased]
 
+### Added
+- **bluecsv**: per-column type inference (`int` / `float` / `date` / `string`) and `summarize` (min / max / sum / mean / count / distinct) as a pure library API; dependency-free date recognition covers ISO-ish shapes.
+- **bluecsv CLI**: `bluecsv infer <path>` and `bluecsv stats <path> <col>` subcommands.
+- **bluecsv-ls**: hover on a data cell now shows the column's inferred type; hover on a header cell (when `hasHeader=true`) shows a summary block (count, distinct, empty, min, max, sum, mean, mismatch count).
+- **bluecsv-ls**: type-mismatch diagnostic — cells whose type differs from the inferred column type are flagged (default severity: warning).
+- **bluecsv-ls**: new workspace command `bluecsv.columnSummary` returns column stats as JSON.
+- **bluecsv-ls**: new settings `bluecsv.inferTypes` (default `true`) and `bluecsv.typeMismatchSeverity` (default `"warning"`; accepts `"warning"`, `"hint"`, `"off"`).
+- **bluecsv**: `bluecsv::stream` module with `stream_align` (two-pass, `Read + Seek`) and `stream_unalign` (single-pass, any `Read`); output is byte-identical to the in-memory paths.
+- **bluecsv CLI**: `--stream` / `--no-stream` flags and `BLUECSV_STREAM_THRESHOLD` env var. Files ≥ 10 MB are streamed by default; stdin always buffers. Keeps peak memory bounded on large inputs.
+- **bluecsv-ls**: new setting `bluecsv.maxBufferBytes` (default `10485760` = 10 MB). Above the cap, type inference and `alignOnSave` are skipped; basic diagnostics and completions still run. Set to `0` to disable the cap.
+- **bluecsv**: criterion benchmark suite (`cargo bench -p bluecsv`) covering `parse`, `align`, and `infer_table` at 1k / 10k / 100k rows; 1M-row runs opt-in via `BLUECSV_BENCH_HUGE=1`.
+- **bluecsv-ls**: end-to-end integration test that spawns the server binary and speaks JSON-RPC over stdio, asserting `hover`, `completion`, and `bluecsv.columnSummary` responses.
+
+### Changed
+- **extension**: rainbow-column scopes swap `@property` → `@attribute` and `@operator` → `@enum` so Gruvbox and Solarized users see more distinct column colors. See `plan/accessibility-audit.md` for the per-theme breakdown.
+- **README**: consolidated settings table covers every `bluecsv.*` key, and the CLI section documents the streaming threshold.
+
 ## [0.6.3] - 2026-04-21
 
 ### Added

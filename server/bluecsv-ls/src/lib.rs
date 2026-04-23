@@ -9,9 +9,11 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
 pub mod diagnostics;
+pub mod inference;
 pub mod model;
 pub mod transforms;
 
+use bluecsv::{summarize, CellType, ColumnStats, ColumnType};
 use model::Model;
 
 const CMD_ALIGN: &str = "bluecsv.align";
@@ -24,12 +26,32 @@ const CMD_NEXT_CELL: &str = "bluecsv.nextCell";
 const CMD_PREV_CELL: &str = "bluecsv.prevCell";
 const CMD_TO_MARKDOWN: &str = "bluecsv.toMarkdownTable";
 const CMD_FROM_MARKDOWN: &str = "bluecsv.fromMarkdownTable";
+const CMD_COLUMN_SUMMARY: &str = "bluecsv.columnSummary";
+
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
+#[serde(rename_all = "lowercase")]
+enum TypeMismatchSeverity {
+    Warning,
+    Hint,
+    Off,
+}
+
+/// Default size cap above which expensive work (type inference, alignOnSave)
+/// is skipped. Matches the CLI streaming threshold.
+const DEFAULT_MAX_BUFFER_BYTES: u64 = 10 * 1024 * 1024;
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(default, rename_all = "camelCase")]
 struct Config {
     align_on_save: bool,
     has_header: bool,
+    infer_types: bool,
+    type_mismatch_severity: TypeMismatchSeverity,
+    /// Buffer-size cap in bytes. Above this, `align_on_save` and type
+    /// inference (hover type labels, header summaries, mismatch diagnostics)
+    /// are skipped. Basic diagnostics and completions still run. `0` disables
+    /// the cap.
+    max_buffer_bytes: u64,
 }
 
 impl Default for Config {
@@ -37,6 +59,27 @@ impl Default for Config {
         Self {
             align_on_save: false,
             has_header: true,
+            infer_types: true,
+            type_mismatch_severity: TypeMismatchSeverity::Warning,
+            max_buffer_bytes: DEFAULT_MAX_BUFFER_BYTES,
+        }
+    }
+}
+
+impl Config {
+    /// True when `text` is within the configured buffer cap (or the cap is
+    /// disabled).
+    fn within_budget(&self, text: &str) -> bool {
+        self.max_buffer_bytes == 0 || (text.len() as u64) <= self.max_buffer_bytes
+    }
+}
+
+impl TypeMismatchSeverity {
+    fn as_diagnostic_severity(self) -> Option<DiagnosticSeverity> {
+        match self {
+            TypeMismatchSeverity::Warning => Some(DiagnosticSeverity::WARNING),
+            TypeMismatchSeverity::Hint => Some(DiagnosticSeverity::HINT),
+            TypeMismatchSeverity::Off => None,
         }
     }
 }
@@ -61,7 +104,20 @@ impl Backend {
             Some(t) => t.clone(),
             None => return,
         };
-        let diags = diagnostics::scan(&text);
+        let cfg = self.config.read().await.clone();
+        let mut diags = diagnostics::scan(&text);
+        if cfg.infer_types && cfg.within_budget(&text) {
+            if let Some(severity) = cfg.type_mismatch_severity.as_diagnostic_severity() {
+                let model = Model::parse(&text);
+                let types = inference::infer_model(&model, cfg.has_header);
+                diags.extend(diagnostics::scan_types(
+                    &model,
+                    &types,
+                    cfg.has_header,
+                    severity,
+                ));
+            }
+        }
         self.client
             .publish_diagnostics(uri.clone(), diags, version)
             .await;
@@ -248,6 +304,63 @@ fn build_code_actions(uri: &Url, model: &Model, pos: Position) -> Vec<CodeAction
     out
 }
 
+fn column_stats_to_json(col: usize, col_ty: &ColumnType, s: &ColumnStats) -> Value {
+    serde_json::json!({
+        "col": col,
+        "type": s.ty.label(),
+        "confidence": col_ty.confidence,
+        "count": s.count,
+        "empty": s.empty,
+        "distinct": s.distinct,
+        "min": s.min,
+        "max": s.max,
+        "sum": s.sum,
+        "mean": s.mean,
+        "mismatchRows": col_ty.mismatch_rows,
+    })
+}
+
+fn column_stats(model: &Model, col: usize, col_ty: &ColumnType, has_header: bool) -> ColumnStats {
+    let skip = if has_header { 1 } else { 0 };
+    let values = model
+        .cells
+        .iter()
+        .skip(skip)
+        .filter_map(|row| row.get(col).map(|c| c.value.as_str()));
+    summarize(values, col_ty.primary)
+}
+
+fn render_column_summary(
+    model: &Model,
+    col: usize,
+    col_ty: &ColumnType,
+    has_header: bool,
+) -> Option<String> {
+    if col_ty.primary == CellType::Empty && col_ty.empty_count == 0 {
+        return None;
+    }
+    let s = column_stats(model, col, col_ty, has_header);
+    let mut out = String::new();
+    out.push_str(&format!("`type: {}`", s.ty.label()));
+    out.push_str(&format!(
+        " · count {} · distinct {} · empty {}",
+        s.count, s.distinct, s.empty
+    ));
+    if let (Some(min), Some(max)) = (&s.min, &s.max) {
+        out.push_str(&format!("\n\nmin: `{min}` · max: `{max}`"));
+    }
+    if let (Some(sum), Some(mean)) = (s.sum, s.mean) {
+        out.push_str(&format!(" · sum: `{sum}` · mean: `{mean:.4}`"));
+    }
+    if !col_ty.mismatch_rows.is_empty() {
+        out.push_str(&format!(
+            "\n\n{} row(s) don't match this type.",
+            col_ty.mismatch_rows.len()
+        ));
+    }
+    Some(out)
+}
+
 fn replace_edit(uri: &Url, old_text: &str, new_text: String) -> WorkspaceEdit {
     let edit = TextEdit {
         range: full_range(old_text),
@@ -293,6 +406,7 @@ impl LanguageServer for Backend {
                         CMD_PREV_CELL.into(),
                         CMD_TO_MARKDOWN.into(),
                         CMD_FROM_MARKDOWN.into(),
+                        CMD_COLUMN_SUMMARY.into(),
                     ],
                     work_done_progress_options: Default::default(),
                 }),
@@ -355,13 +469,19 @@ impl LanguageServer for Backend {
         &self,
         params: WillSaveTextDocumentParams,
     ) -> Result<Option<Vec<TextEdit>>> {
-        if !self.config.read().await.align_on_save {
+        let cfg = self.config.read().await.clone();
+        if !cfg.align_on_save {
             return Ok(None);
         }
         let uri = &params.text_document.uri;
         let Some(text) = self.docs.get(uri).map(|t| t.clone()) else {
             return Ok(None);
         };
+        if !cfg.within_budget(&text) {
+            // Buffer exceeds maxBufferBytes: skip alignment so the save isn't
+            // held up by a multi-megabyte rewrite.
+            return Ok(None);
+        }
         let aligned = bluecsv::align(&text);
         if aligned == text {
             return Ok(None);
@@ -412,6 +532,17 @@ impl LanguageServer for Backend {
                 let forward = params.command == CMD_NEXT_CELL;
                 self.move_cell(uri.clone(), &text, position, forward).await;
                 return Ok(None);
+            }
+            CMD_COLUMN_SUMMARY => {
+                let col = arg_usize(&params.arguments, "col")
+                    .ok_or_else(|| invalid_params("expected col argument"))?;
+                let model = Model::parse(&text);
+                let col_types = inference::infer_model(&model, has_header);
+                let Some(col_ty) = col_types.get(col) else {
+                    return Ok(None);
+                };
+                let s = column_stats(&model, col, col_ty, has_header);
+                return Ok(Some(column_stats_to_json(col, col_ty, &s)));
             }
             other => {
                 return Err(Error {
@@ -491,8 +622,8 @@ impl LanguageServer for Backend {
         let Some(cell) = model.cell_at(pos).cloned() else {
             return Ok(None);
         };
-        let has_header = self.config.read().await.has_header;
-        let header = if has_header {
+        let cfg = self.config.read().await.clone();
+        let header = if cfg.has_header {
             model.header(cell.col).map(|s| s.to_string())
         } else {
             None
@@ -500,7 +631,7 @@ impl LanguageServer for Backend {
         let col_label = header
             .filter(|h| !h.is_empty())
             .unwrap_or_else(|| format!("column {}", cell.col + 1));
-        let row_label = if has_header {
+        let row_label = if cfg.has_header {
             if cell.row == 0 {
                 "header".to_string()
             } else {
@@ -509,7 +640,25 @@ impl LanguageServer for Backend {
         } else {
             format!("row {}", cell.row + 1)
         };
-        let md = format!("**{col_label}** — {row_label}");
+        let mut md = format!("**{col_label}** — {row_label}");
+
+        if cfg.infer_types && cfg.within_budget(&text) {
+            let col_types = inference::infer_model(&model, cfg.has_header);
+            if let Some(col_ty) = col_types.get(cell.col) {
+                let is_header_cell = cfg.has_header && cell.row == 0;
+                if is_header_cell {
+                    if let Some(block) =
+                        render_column_summary(&model, cell.col, col_ty, cfg.has_header)
+                    {
+                        md.push_str("\n\n");
+                        md.push_str(&block);
+                    }
+                } else if col_ty.primary != CellType::String && col_ty.primary != CellType::Empty {
+                    md.push_str(&format!("\n\n`type: {}`", col_ty.primary.label()));
+                }
+            }
+        }
+
         Ok(Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,

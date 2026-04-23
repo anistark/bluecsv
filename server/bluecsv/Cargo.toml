@@ -17,3 +17,10 @@ path = "src/lib.rs"
 [[bin]]
 name = "bluecsv"
 path = "src/main.rs"
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false, features = ["plotters", "cargo_bench_support"] }
+
+[[bench]]
+name = "csv_ops"
+harness = false

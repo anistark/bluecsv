@@ -1,4 +1,7 @@
+use bluecsv::{classify_cell, CellType, ColumnType};
 use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range};
+
+use crate::model::Model;
 
 #[derive(Copy, Clone, PartialEq)]
 enum State {
@@ -180,6 +183,59 @@ pub fn scan(input: &str) -> Vec<Diagnostic> {
     diagnostics
 }
 
+/// Emit a warning-level diagnostic for each non-empty cell whose type
+/// doesn't match its column's inferred type. Columns whose inferred type is
+/// `String` or `Empty` produce no diagnostics.
+pub fn scan_types(
+    model: &Model,
+    column_types: &[ColumnType],
+    has_header: bool,
+    severity: DiagnosticSeverity,
+) -> Vec<Diagnostic> {
+    let skip = if has_header { 1 } else { 0 };
+    let mut out = Vec::new();
+    for (col_idx, col_ty) in column_types.iter().enumerate() {
+        if col_ty.primary == CellType::String || col_ty.primary == CellType::Empty {
+            continue;
+        }
+        for row in model.cells.iter().skip(skip) {
+            let Some(cell) = row.get(col_idx) else {
+                continue;
+            };
+            let t = classify_cell(&cell.value);
+            if t == CellType::Empty || matches_column_type(t, col_ty.primary) {
+                continue;
+            }
+            out.push(Diagnostic {
+                range: cell.range,
+                severity: Some(severity),
+                message: format!(
+                    "Value \"{}\" doesn't match column type {}.",
+                    truncate_for_message(&cell.value),
+                    col_ty.primary.label()
+                ),
+                source: Some("bluecsv".into()),
+                ..Default::default()
+            });
+        }
+    }
+    out
+}
+
+fn matches_column_type(cell: CellType, column: CellType) -> bool {
+    cell == column || (cell == CellType::Int && column == CellType::Float)
+}
+
+fn truncate_for_message(s: &str) -> String {
+    const MAX: usize = 24;
+    if s.chars().count() <= MAX {
+        return s.to_string();
+    }
+    let mut out: String = s.chars().take(MAX).collect();
+    out.push('…');
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,5 +275,47 @@ mod tests {
     fn no_trailing_newline_still_counts_last_row() {
         let diags = scan("a,b\nc");
         assert_eq!(diags.len(), 1);
+    }
+
+    fn types_for(text: &str, has_header: bool) -> (Model, Vec<ColumnType>) {
+        let m = Model::parse(text);
+        let types = crate::inference::infer_model(&m, has_header);
+        (m, types)
+    }
+
+    #[test]
+    fn type_mismatch_flags_outlier_in_int_column() {
+        let (m, types) = types_for(
+            "id,age\n1,30\n2,25\n3,42\n4,oops\n5,28\n6,31\n7,33\n8,29\n9,40\n10,19\n",
+            true,
+        );
+        let diags = scan_types(&m, &types, true, DiagnosticSeverity::WARNING);
+        assert_eq!(diags.len(), 1);
+        assert!(diags[0].message.contains("int"));
+        assert_eq!(diags[0].range.start.line, 4);
+    }
+
+    #[test]
+    fn string_columns_produce_no_diagnostics() {
+        let (m, types) = types_for("name\nalice\nbob\ncarol\n", true);
+        let diags = scan_types(&m, &types, true, DiagnosticSeverity::WARNING);
+        assert!(diags.is_empty());
+    }
+
+    #[test]
+    fn int_cell_in_float_column_is_not_flagged() {
+        let (m, types) = types_for(
+            "price\n1.5\n2.5\n3\n4.25\n5.75\n6\n7.1\n8.2\n9\n10.3\n",
+            true,
+        );
+        let diags = scan_types(&m, &types, true, DiagnosticSeverity::WARNING);
+        assert!(diags.is_empty());
+    }
+
+    #[test]
+    fn empty_cells_are_never_flagged() {
+        let (m, types) = types_for("id\n1\n\n3\n4\n\n6\n7\n8\n9\n10\n", true);
+        let diags = scan_types(&m, &types, true, DiagnosticSeverity::WARNING);
+        assert!(diags.is_empty());
     }
 }

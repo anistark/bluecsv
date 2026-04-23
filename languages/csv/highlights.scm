@@ -9,8 +9,8 @@
 (field_6) @variable
 (field_7) @constant
 (field_8) @tag
-(field_9) @property
-(field_10) @operator
+(field_9) @attribute
+(field_10) @enum
 
 (field_overflow) @comment
 

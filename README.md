@@ -19,6 +19,7 @@ Zed's extension API doesn't currently support custom file-renderers, so Blue CSV
 - **Markdown-table round-trip** — convert `a,b,c` ↔ `| a | b | c |` and back.
 - **Cell navigation** — Tab / Shift-Tab hop between fields; commands for add-column, delete-column, duplicate-row, header-aware sort.
 - **Column-aware LSP** — diagnostics for row-width mismatches and unterminated quotes; completions drawn from values already seen in that column; hover shows `column name + row index`.
+- **Type inference** — columns are classified as int, float, date, or string. Hover on a data cell shows the inferred type; hover on a header cell shows a summary (count, distinct, min, max, sum, mean). Outlier cells in typed columns surface as diagnostics.
 
 Supports `.csv` and custom delimiters.
 
@@ -52,6 +53,7 @@ The language server also exposes these raw `workspace/executeCommand` names, usa
 | `bluecsv.prevCell` | `[{uri, position}]` | Request the editor move the cursor to the previous cell. |
 | `bluecsv.toMarkdownTable` | `[uri]` | Rewrite the buffer as a GitHub-flavored pipe table. |
 | `bluecsv.fromMarkdownTable` | `[uri]` | Parse a pipe table back into CSV. |
+| `bluecsv.columnSummary` | `[{uri, col}]` | Return `{type, confidence, count, distinct, min, max, sum, mean, mismatchRows}` as JSON. |
 
 Zed extensions can't contribute keybindings directly — Tab / Shift-Tab cell navigation will land once the extension API grows a keymap hook, or you can wire the commands above manually in your Zed `keymap.json`.
 
@@ -69,6 +71,37 @@ Round-trip CSV → markdown → CSV is lossy for these cases:
 - `\r` / `\n` inside a field are encoded as `<br>` in markdown and restored on the way back.
 
 Simple canonical CSV (no padding inside fields) round-trips exactly.
+
+## Type inference
+
+Columns are classified by scanning all non-empty cells. A column is assigned a type (int, float, date, string) when at least **90%** of its non-empty cells match that type and at least **3** non-empty cells exist; otherwise it falls back to `string`. Numeric promotion: int cells satisfy a float column.
+
+Recognized dates are ISO-ish: `YYYY-MM-DD`, `YYYY/MM/DD`, and `YYYY-MM-DDTHH:MM:SS` with optional `Z` or `±HH:MM` suffix. Ambiguous shapes like `MM/DD/YYYY` are left as strings.
+
+## Settings
+
+All settings live under the `bluecsv.*` namespace in Zed's `settings.json` (or `lsp.bluecsv.initialization_options`).
+
+| Key | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `hasHeader` | `bool` | `true` | Treat row 0 as a header. Affects sorting, completions, inference, and hover. |
+| `alignOnSave` | `bool` | `false` | Run `bluecsv.align` automatically on save. |
+| `inferTypes` | `bool` | `true` | Enable hover type labels, header summaries, and type-mismatch diagnostics. |
+| `typeMismatchSeverity` | `"warning"` \| `"hint"` \| `"off"` | `"warning"` | Diagnostic level for cells that don't match their column's inferred type. |
+| `maxBufferBytes` | `integer` | `10485760` (10 MB) | Size cap (in bytes) above which `inferTypes` and `alignOnSave` are skipped. Basic diagnostics (row-width, unterminated quotes) and completions still run. Set to `0` to disable the cap. |
+
+## CLI
+
+The `bluecsv` CLI exposes the library for use outside the editor.
+
+```sh
+bluecsv align data.csv              # pad columns to width
+bluecsv unalign data.csv            # strip padding
+bluecsv infer data.csv              # per-column: type, confidence, empty, mismatches
+bluecsv stats data.csv 2            # min/max/sum/mean/count/distinct for column index 2
+```
+
+`align` and `unalign` stream the file through a two-pass algorithm when it exceeds 10 MB, keeping peak memory bounded. Override with `--stream` / `--no-stream`, or change the auto-detection threshold via the `BLUECSV_STREAM_THRESHOLD` environment variable (bytes). Stdin always buffers, because pipes can't be rewound for the second pass.
 
 ## Contributing
 
